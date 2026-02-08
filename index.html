@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>VARTICA Metaverse Core | KreaVerse</title>
+  <link rel="shortcut icon" href="TemplateData/favicon2.ico?v=2" type="image/x-icon">
+  <link rel="stylesheet" href="TemplateData/style.css">
+</head>
+<body>
+  <div id="unity-container" class="unity-desktop">
+    <canvas id="unity-canvas" width=960 height=600></canvas>
+    <div id="unity-loading-bar">
+      <div id="unity-logo"></div>
+      <div id="unity-progress-bar-empty">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+    </div>
+    <div id="unity-warning"></div>
+    <div id="unity-footer">
+      <div id="unity-webgl-logo"></div>
+      <div id="unity-fullscreen-button"></div>
+      <div id="unity-build-title"></div>
+    </div>
+  </div>
+
+  <div class="watermark-image"></div>
+
+ <div id="rotate-warning">
+    <div>Por favor, gira tu dispositivo en horizontal / Please, rotate your device horizontally.</div>
+  </div>
+
+<script>
+  var container = document.querySelector("#unity-container");
+  var canvas = document.querySelector("#unity-canvas");
+  var loadingBar = document.querySelector("#unity-loading-bar");
+  var progressBarFull = document.querySelector("#unity-progress-bar-full");
+  var fullscreenButton = document.querySelector("#unity-fullscreen-button");
+  var warningBanner = document.querySelector("#unity-warning");
+  var rotateWarning = document.querySelector("#rotate-warning");
+  var watermark = document.querySelector(".watermark-image");
+  var unityInstance = null;
+  
+  // CONTROL DE FULLSCREEN: Ahora activado por defecto para que funcione desde el inicio
+ // CONTROL DE FULLSCREEN
+  let autoFullscreenEnabled = true; 
+
+  window.EnableAutoFullscreen = function() {
+    autoFullscreenEnabled = true;
+    console.log("Auto-Fullscreen: ENABLED");
+  };
+
+  window.DisableAutoFullscreen = function() {
+    autoFullscreenEnabled = false;
+    
+    // CAMBIO AQUÍ: Solo salimos de pantalla completa si es un dispositivo MÓVIL
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        if (document.fullscreenElement) { 
+            document.exitFullscreen(); 
+            console.log("Auto-Fullscreen: DISABLED (Mobile - Exiting Fullscreen)");
+        }
+    } else {
+        console.log("Auto-Fullscreen: DISABLED (PC - Staying in Fullscreen)");
+    }
+  };
+
+  function unityShowBanner(msg, type) {
+    function updateBannerVisibility() {
+      warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+    }
+    var div = document.createElement('div');
+    div.innerHTML = msg;
+    warningBanner.appendChild(div);
+    if (type == 'error') div.style = 'background: red; padding: 10px;';
+    else {
+      if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+      setTimeout(function () {
+        warningBanner.removeChild(div);
+        updateBannerVisibility();
+      }, 5000);
+    }
+    updateBannerVisibility();
+  }
+
+  var buildUrl = "Build";
+  var loaderUrl = buildUrl + "/gameCore.loader.js";
+  var config = {
+    dataUrl: buildUrl + "/gameCore.data",
+    frameworkUrl: buildUrl + "/gameCore.framework.js",
+    codeUrl: buildUrl + "/gameCore.wasm",
+    streamingAssetsUrl: "StreamingAssets",
+    companyName: "KreaVerse",
+    productName: "VARTICAMetaverse",
+    productVersion: "0.1",
+    showBanner: unityShowBanner,
+  };
+
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    var meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+    document.getElementsByTagName('head')[0].appendChild(meta);
+    container.className = "unity-mobile";
+    canvas.className = "unity-mobile";
+  } else {
+    canvas.style.width = "960px";
+    canvas.style.height = "600px";
+  }
+
+  loadingBar.style.display = "block";
+
+  var script = document.createElement("script");
+  script.src = loaderUrl;
+  script.onload = () => {
+    createUnityInstance(canvas, config, (progress) => {
+      progressBarFull.style.width = 100 * progress + "%";
+    }).then((instance) => {
+      unityInstance = instance;
+      window.unityInstance = instance;
+      loadingBar.style.display = "none";
+      
+      fullscreenButton.onclick = () => unityInstance.SetFullscreen(1);
+
+      // SOLO PARA MÓVILES: Lógica de tocar para pantalla completa
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        document.addEventListener("touchend", (e) => {
+          const kbInput = document.getElementById('webgl-input');
+          // Solo actúa si NO es PC, si el modo está habilitado y si NO se está usando el teclado
+          if (autoFullscreenEnabled && document.activeElement !== kbInput) {
+            unityInstance.SetFullscreen(1);
+          }
+        });
+      }
+    }).catch((message) => alert(message));
+  };
+  document.body.appendChild(script);
+
+document.addEventListener("fullscreenchange", () => {
+  const isFullscreen = !!document.fullscreenElement;
+  if (isFullscreen) {
+    canvas.classList.add("no-border");
+    if (!document.querySelector(".watermark-fullscreen")) {
+      const wmClone = document.createElement("div");
+      wmClone.className = "watermark-fullscreen";
+      wmClone.style = "position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:999999; opacity:0.15; background-repeat:repeat; background-position:center; background-size:250px; transform:rotate(-25deg); mix-blend-mode:overlay;";
+      wmClone.style.backgroundImage = getComputedStyle(watermark).backgroundImage;
+      document.body.appendChild(wmClone);
+    }
+  } else {
+    canvas.classList.remove("no-border");
+    const fsWatermark = document.querySelector(".watermark-fullscreen");
+    if (fsWatermark) fsWatermark.remove();
+  }
+});
+
+  let blurActive = false; 
+  let blurTimeout = null;
+
+  function applyBlur(state) {
+    blurActive = state;
+    if (state) {
+      canvas.classList.add("blurred");
+      watermark.classList.add("watermark-active");
+    } else {
+      canvas.classList.remove("blurred");
+      watermark.classList.remove("watermark-active");
+    }
+  }
+
+  document.addEventListener("visibilitychange", () => applyBlur(document.hidden));
+  window.addEventListener("blur", () => applyBlur(true));
+  window.addEventListener("focus", () => applyBlur(false));
+  window.addEventListener("mouseleave", () => applyBlur(true));
+  window.addEventListener("mouseenter", () => applyBlur(false));
+
+  document.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    applyBlur(true);
+    if (blurTimeout) clearTimeout(blurTimeout);
+    blurTimeout = setTimeout(() => {
+      if (!document.hidden && document.hasFocus()) { applyBlur(false); }
+    }, 4000);
+  });
+
+  function enforceLandscape() {
+    const isPortrait = window.innerHeight > window.innerWidth;
+    rotateWarning.style.display = isPortrait ? "flex" : "none";
+    canvas.style.display = isPortrait ? "none" : "block";
+  }
+
+  window.addEventListener("resize", enforceLandscape);
+  window.addEventListener("orientationchange", enforceLandscape);
+  enforceLandscape();
+</script>
+</body>
+</html>
